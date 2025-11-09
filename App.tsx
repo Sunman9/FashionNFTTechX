@@ -1,33 +1,74 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Header } from './components/Header';
 import { FileUpload } from './components/FileUpload';
 import { GeneratedAssets } from './components/GeneratedAssets';
 import { Loader } from './components/Loader';
 import { generateFashionAssets } from './services/geminiService';
-import type { GeneratedAssetData } from './types';
+import { getCollections, addCollection, addLookToCollection } from './services/collectionService';
+import type { GeneratedAssetData, Collection } from './types';
 import { SparklesIcon } from './components/Icons';
+import { SaveToCollectionModal } from './components/SaveToCollectionModal';
+import { CollectionsModal } from './components/CollectionsModal';
+
+
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const result = (reader.result as string).split(',')[1];
+      if (result) {
+        resolve(result);
+      } else {
+        reject(new Error("Failed to convert file to base64"));
+      }
+    };
+    reader.onerror = error => reject(error);
+  });
+}
 
 export default function App() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [originalSketchBase64, setOriginalSketchBase64] = useState<string | null>(null);
   const [prompt, setPrompt] = useState<string>('Bohemian chic, silk, sunset palette, intricate embroidery');
   const [generatedData, setGeneratedData] = useState<GeneratedAssetData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleFileSelect = (file: File) => {
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [isCollectionsModalOpen, setIsCollectionsModalOpen] = useState<boolean>(false);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    setCollections(getCollections());
+  }, []);
+
+  const updateCollections = () => {
+    setCollections(getCollections());
+  };
+
+  const handleFileSelect = async (file: File) => {
     setUploadedFile(file);
     setGeneratedData(null);
     setError(null);
+    try {
+      const base64 = await fileToBase64(file);
+      setOriginalSketchBase64(base64);
+    } catch (e) {
+      setError("Failed to read the uploaded file.");
+      setOriginalSketchBase64(null);
+    }
   };
   
   const handleClear = () => {
     setUploadedFile(null);
     setGeneratedData(null);
     setError(null);
+    setOriginalSketchBase64(null);
   };
 
   const handleGenerate = useCallback(async () => {
-    if (!uploadedFile || !prompt) {
+    if (!uploadedFile || !prompt || !originalSketchBase64) {
       setError('Please upload a sketch and provide design keywords.');
       return;
     }
@@ -37,7 +78,7 @@ export default function App() {
     setGeneratedData(null);
 
     try {
-      const result = await generateFashionAssets(uploadedFile, prompt);
+      const result = await generateFashionAssets(originalSketchBase64, uploadedFile.type, prompt);
       setGeneratedData(result);
     } catch (e: any) {
       console.error(e);
@@ -45,11 +86,39 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [uploadedFile, prompt]);
+  }, [uploadedFile, prompt, originalSketchBase64]);
+
+  const handleSaveLook = ({ lookName, collectionId, newCollectionName }: { lookName: string; collectionId: string; newCollectionName?: string; }) => {
+    if (!generatedData || !originalSketchBase64) return;
+    
+    let finalCollectionId = collectionId;
+    if (collectionId === 'new' && newCollectionName) {
+      try {
+        const newColl = addCollection(newCollectionName);
+        finalCollectionId = newColl.id;
+      } catch (e: any) {
+        setError(`Failed to create collection: ${e.message}`);
+        return;
+      }
+    }
+
+    if (!finalCollectionId || finalCollectionId === 'new') {
+        setError("Please select or create a collection.");
+        return;
+    }
+
+    try {
+      addLookToCollection(finalCollectionId, generatedData, lookName, originalSketchBase64, prompt);
+      updateCollections();
+      setIsSaveModalOpen(false);
+    } catch (e: any) {
+      setError(`Failed to save look: ${e.message}`);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-brand-primary font-sans">
-      <Header />
+      <Header onOpenCollections={() => setIsCollectionsModalOpen(true)} />
       <main className="container mx-auto p-4 md:p-8">
         <div className="max-w-6xl mx-auto">
           <p className="text-center text-brand-text-secondary mb-8 text-lg">
@@ -94,11 +163,26 @@ export default function App() {
                   Your generated lookbook and marketing copy will appear here.
                 </div>
               )}
-              {generatedData && <GeneratedAssets data={generatedData} />}
+              {generatedData && <GeneratedAssets data={generatedData} onSaveRequest={() => setIsSaveModalOpen(true)} />}
             </div>
           </div>
         </div>
       </main>
+
+      {isSaveModalOpen && (
+        <SaveToCollectionModal
+          collections={collections}
+          onClose={() => setIsSaveModalOpen(false)}
+          onSave={handleSaveLook}
+        />
+      )}
+      {isCollectionsModalOpen && (
+        <CollectionsModal
+          collections={collections}
+          onClose={() => setIsCollectionsModalOpen(false)}
+          onUpdate={updateCollections}
+        />
+      )}
     </div>
   );
 }

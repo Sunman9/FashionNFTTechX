@@ -26,22 +26,6 @@ const marketingCopySchema = {
   required: ["instagramCaption", "lookbookDescription", "prPitch"],
 };
 
-async function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      const result = (reader.result as string).split(',')[1];
-      if (result) {
-        resolve(result);
-      } else {
-        reject(new Error("Failed to convert file to base64"));
-      }
-    };
-    reader.onerror = error => reject(error);
-  });
-}
-
 const generateImage = (base64Image: string, fileType: string, prompt: string) => {
   return ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
@@ -65,10 +49,10 @@ const generateImage = (base64Image: string, fileType: string, prompt: string) =>
 };
 
 export async function generateFashionAssets(
-  file: File,
+  base64Image: string,
+  fileType: string,
   keywords: string
 ): Promise<GeneratedAssetData> {
-  const base64Image = await fileToBase64(file);
 
   const lookbookPrompts = [
     `Generate a photorealistic lookbook image of a fashion design based on the provided sketch. The style should reflect these keywords: ${keywords}. Use a clean studio background with professional lighting. The model should be posing elegantly in a full-body shot.`,
@@ -80,10 +64,10 @@ export async function generateFashionAssets(
 
   // Parallelize API calls
   const [imageResponse1, imageResponse2, imageResponse3, moodboardResponse, textResponse] = await Promise.all([
-    generateImage(base64Image, file.type, lookbookPrompts[0]),
-    generateImage(base64Image, file.type, lookbookPrompts[1]),
-    generateImage(base64Image, file.type, lookbookPrompts[2]),
-    generateImage(base64Image, file.type, moodboardPrompt),
+    generateImage(base64Image, fileType, lookbookPrompts[0]),
+    generateImage(base64Image, fileType, lookbookPrompts[1]),
+    generateImage(base64Image, fileType, lookbookPrompts[2]),
+    generateImage(base64Image, fileType, moodboardPrompt),
     // Text generation call
     ai.models.generateContent({
       model: 'gemini-2.5-flash',

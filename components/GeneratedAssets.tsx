@@ -10,6 +10,7 @@ import {
   FacebookIcon,
   PinterestIcon,
   InstagramIcon,
+  BookmarkIcon
 } from './Icons';
 
 const MarketingCopyCard: React.FC<{ title: string; text: string }> = ({ title, text }) => {
@@ -38,7 +39,12 @@ const MarketingCopyCard: React.FC<{ title: string; text: string }> = ({ title, t
   );
 };
 
-export const GeneratedAssets: React.FC<{ data: GeneratedAssetData }> = ({ data }) => {
+interface GeneratedAssetsProps {
+  data: GeneratedAssetData;
+  onSaveRequest?: () => void;
+}
+
+export const GeneratedAssets: React.FC<GeneratedAssetsProps> = ({ data, onSaveRequest }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const selectedImage = data.images[selectedImageIndex];
   const imageUrl = `data:image/png;base64,${selectedImage}`;
@@ -68,17 +74,25 @@ export const GeneratedAssets: React.FC<{ data: GeneratedAssetData }> = ({ data }
               alt="AI generated fashion lookbook"
               className="w-full rounded-lg shadow-lg"
             />
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 md:gap-4">
               <a
                 href={imageUrl}
                 download={`fashiontechx-design-${selectedImageIndex + 1}.png`}
-                className="flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-white/30"
+                className="flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white py-2 px-3 md:px-4 rounded-lg hover:bg-white/30 text-sm"
               >
                 <DownloadIcon /> Download
               </a>
+              {onSaveRequest && (
+                <button
+                  onClick={onSaveRequest}
+                  className="flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white py-2 px-3 md:px-4 rounded-lg hover:bg-white/30 text-sm"
+                >
+                  <BookmarkIcon /> Save
+                </button>
+              )}
               <button
                 onClick={() => setIsMintModalOpen(true)}
-                className="flex items-center gap-2 bg-brand-accent/80 backdrop-blur-sm text-brand-primary font-bold py-2 px-4 rounded-lg hover:bg-brand-accent"
+                className="flex items-center gap-2 bg-brand-accent/80 backdrop-blur-sm text-brand-primary font-bold py-2 px-3 md:px-4 rounded-lg hover:bg-brand-accent text-sm"
               >
                 <TagIcon /> Mint NFT
               </button>

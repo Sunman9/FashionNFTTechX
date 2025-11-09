@@ -9,3 +9,17 @@ export interface GeneratedAssetData {
   moodboardImage: string;
   marketingCopy: MarketingCopy;
 }
+
+export interface Look extends GeneratedAssetData {
+  id: string;
+  name: string;
+  createdAt: string;
+  originalSketch: string; // base64 of the original uploaded file
+  prompt: string;
+}
+
+export interface Collection {
+  id: string;
+  name: string;
+  looks: Look[];
+}
